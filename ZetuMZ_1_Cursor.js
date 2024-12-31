@@ -77,7 +77,7 @@ Zetu.note.namespace("cursor")
 Zetu.Cursor.DisableStyle = new CSSStyleSheet();
 Zetu.Cursor.DisableStyle.replaceSync('* { cursor: none; }');
 document.adoptedStyleSheets = [Zetu.Cursor.DisableStyle];
-
+// HEY YA
 
 // #region Sprite_Cursor
 function Sprite_Cursor () {
