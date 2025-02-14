@@ -56,7 +56,8 @@
  */
 Zetu.setupHeader("ZetuMZ_1_Cursor")
     .setNamespace("Cursor")
-    .requires("ZetuMZ_0_Core");
+    .requires("ZetuMZ_0_Core")
+    .optional("ZetuMZ_1_AnimationPlus");
 
 Zetu.note.namespace("cursor")
     .page(/ON HOVER[:\s](.+)/i, (page, cursor) => {
@@ -92,8 +93,9 @@ Sprite_Cursor.prototype.initialize = function (options) {
     this.bitmap = ImageManager.loadSystem(options.CursorImage);
     this.ox = options.Ox;
     this.oy = options.Oy;
+    this.subCursor = null;
     this.name = options.CursorImage.split('/').last();
-    if (options.AnimationEnabled) {
+    if (options.AnimationEnabled && Zetu.Cursor.Optional["ZetuMZ_1_AnimationPlus"]) {
         const frames = options.AnimationFrames;
         const duration = options.AnimationDuration;
         const pingpong = options.AnimationPingPong;
@@ -110,6 +112,38 @@ Sprite_Cursor.prototype.updatePosition = function () {
     this.x = TouchInput.x - this.ox;
     this.y = TouchInput.y - this.oy;
 };
+
+Sprite_Cursor.prototype.subCursorIcon = function (iconIndex, ox = 0, oy = 0) {
+    this.clearSubCursor();
+    if (iconIndex == 0) return;
+    this.dockIconIndex = iconIndex;
+    let sprite = new Sprite();
+    const iconBitmap = ImageManager.loadSystem("IconSet");
+    const pw = ImageManager.iconWidth;
+    const ph = ImageManager.iconHeight;
+    const sx = (iconIndex % 16) * pw;
+    const sy = Math.floor(iconIndex / 16) * ph;
+    sprite.bitmap = new Bitmap(pw, ph);
+    sprite.bitmap.blt(iconBitmap, sx, sy, pw, ph, 0, 0);
+    sprite.x = ox;
+    sprite.y = oy;
+    this.addChild(sprite);
+    this.subCursor = sprite;
+};
+
+Sprite_Cursor.prototype.clearSubCursor = function () {
+    if (this.subCursor) {
+        this.dockIconIndex = 0;
+        this.removeChild(this.subCursor);
+        this.subCursor.destroy();
+        this.subCursor = null;
+        this.setItem(null);
+    }
+};
+
+Sprite_Cursor.prototype.setItem = function (item) {
+    this.item = item;
+}
 // #endregion
 
 // #region Spriteset_Cursor
@@ -126,6 +160,7 @@ Spriteset_Cursor.prototype.initialize = function () {
     this.cursors = [];
     this.default = null;
     this.hover = null;
+    this.mode = "default";
     Zetu.Cursor.Cursors.forEach(options => {
         var cursor = this.generateCursor(options);
         if (!this.default) {
@@ -150,10 +185,16 @@ Spriteset_Cursor.prototype.updateHover = function () {
     var cursor;
     if (SceneManager._scene instanceof Scene_Map) {
         const events = $gameMap.eventsMouseHover();
-        events.forEach(event => cursor ||= event.page().cursorHover);
+        events.forEach(event => {
+            var page = event.page();
+            if (page) cursor ||= page.cursorHover;
+        });
     }
     if (!cursor) this.hover = null;
-    else if (!this.hover || this.hover.name != cursor) this.hover = this.getCursorByName(cursor);
+    else if (!this.hover || this.hover.name != cursor) {
+        this.hover = this.getCursorByName(cursor);
+        this.mode = "hover";
+    }
 };
 
 Spriteset_Cursor.prototype.updateActiveCursor = function () {
@@ -161,6 +202,9 @@ Spriteset_Cursor.prototype.updateActiveCursor = function () {
     if (this.active !== current) {
         this.removeChild(this.active);
         this.addChild(this.active = current);
+        if (current == this.default) {
+            this.mode = "default";
+        }
     }
 };
 
@@ -169,6 +213,7 @@ Spriteset_Cursor.prototype.cursorMode = function () {
 };
 
 Spriteset_Cursor.prototype.getCursorByName = function (cursorName) {
+    cursorName = cursorName.split('/').last();
     return this.cursors.first(cursor => cursor.name == cursorName);
 };
 
@@ -176,12 +221,22 @@ Spriteset_Cursor.prototype.destroy = function () {
     // don't
 };
 
-$gameCursor = new Spriteset_Cursor();
+
+Spriteset_Cursor.prototype.getItem = function () {
+    return this.active.item;
+}
+
+Spriteset_Cursor.prototype.setItem = function (item, ox = 0, oy = 0) {
+    this.active.setItem(item);
+}
+
+$gameCursor = null;
 // #endregion
 
 (alias => Scene_Base.prototype.create = function () {
     alias.apply(this, arguments);
     this.sortableChildren = true;
+    if (!$gameCursor) $gameCursor = new Spriteset_Cursor();
     this.addChild($gameCursor);
 })(Scene_Base.prototype.create);
 

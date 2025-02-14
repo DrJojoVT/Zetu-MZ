@@ -102,137 +102,143 @@ Zetu.setupHeader("ZetuMZ_1_MessageTyping")
     .setNamespace("TypingSE")
     .requires("ZetuMZ_0_Core");
 
-(function() {
-    const GetSound = function (friendlyName) {
-        if (!friendlyName) return null;
-        for (let i = 0; i < Zetu.TypingSE.Sounds.length; i++) {
-            var sound = Zetu.TypingSE.Sounds[i];
-            if (friendlyName.toUpperCase() == sound.Name.toUpperCase()) {
-                return Zetu.extend({}, sound, {
-                    Time: 0,
-                    LastIndex: -1,
-                    NextIndex: 0
-                });
-            }
+const GetSound = function (friendlyName) {
+    if (!friendlyName) return null;
+    for (let i = 0; i < Zetu.TypingSE.Sounds.length; i++) {
+        var sound = Zetu.TypingSE.Sounds[i];
+        console.log(friendlyName);
+        if (friendlyName.toUpperCase() == sound.Name.toUpperCase()) {
+            console.log(sound);
+            return Zetu.extend({}, sound, {
+                Time: 0,
+                LastIndex: -1,
+                NextIndex: 0
+            });
         }
-        return null;
-    };
-
-    const Variance = function (initial, variance) {
-        var r = Math.floor((1 + 2* variance)*Math.random());
-        var n = initial + r - variance;
-        return n;
-    };
-
-    const LastTime = function (se) {
-        if (!se) return 0;
-        var audio = se.Sounds[se.LastIndex];
-        return Variance(audio.Delay, audio.DelayVariance);
     }
+    return null;
+};
 
-    let Window_Message_startMessage = Window_Message.prototype.startMessage;
-    Window_Message.prototype.startMessage = function() {
-        Window_Message_startMessage.apply(this, arguments);
-        this.currentTypingSE = null;
-    };
+const Variance = function (initial, variance) {
+    var r = Math.floor((1 + 2* variance)*Math.random());
+    var n = initial + r - variance;
+    return n;
+};
 
-    let Window_Message_updateMessage = Window_Message.prototype.updateMessage;
-    Window_Message.prototype.updateMessage = function () {
-        let updated = Window_Message_updateMessage.apply(this, arguments);
-        if (this.currentTypingSE) {
-            if (this.isWaiting()) this.currentTypingSE.Time = 0;
-            if (updated && this.currentTypingSE.Time-- <= 0 && !this.isWaiting()) {
-                var se = this.typingSoundAudio();
-                AudioManager.playTypingSe(se, this.currentTypingSE.Name);
-                this.currentTypingSE.Time = LastTime(this.currentTypingSE);
-            }
+// const LastTime = function (se) {
+//     if (!se) return 0;
+//     console.log(se);
+//     var audio = se.Sounds[se.LastIndex];
+//     return Variance(audio.Delay, audio.DelayVariance);
+// }
+
+(alias => Window_Message.prototype.startMessage = function() {
+    alias.apply(this, arguments);
+    console.log(null);
+    this.currentTypingSE = null;
+})(Window_Message.prototype.startMessage);
+
+(alias => Window_Message.prototype.updateMessage = function () {
+    let updated = alias.apply(this, arguments);
+    console.log(this.currentTypingSE);
+    if (this.currentTypingSE) {
+        if (this.isWaiting()) this.currentTypingSE.Time = 0;
+        if (updated && this.currentTypingSE.Time-- <= 0 && !this.isWaiting()) {
+            var se = this.typingSoundAudio();
+            AudioManager.playTypingSe(se, this.currentTypingSE.Name);
+            var se2 = se.Sounds[se.LastIndex];
+            this.currentTypingSE.Time = Variance(se2.Delay, se2.DelayVariance);
         }
-        return updated;
-    };
+    }
+    return updated;
+})(Window_Message.prototype.updateMessage);
 
-    Window_Message.prototype.typingSoundAudio = function () {
-        if (!this.currentTypingSE) return null;
-        var se = this.currentTypingSE;
-        var audio = se.Sounds[se.NextIndex];
-        let lastIndex = se.LastIndex;
-        se.LastIndex = se.NextIndex;
-        switch (se.SelectionMethod) {
-            case "InOrder":
+Window_Message.prototype.typingSoundAudio = function () {
+    if (!this.currentTypingSE) return null;
+    var se = this.currentTypingSE;
+    var audio = se.Sounds[se.NextIndex];
+    let lastIndex = se.LastIndex;
+    se.LastIndex = se.NextIndex;
+    switch (se.SelectionMethod) {
+        case "InOrder":
+            se.NextIndex++;
+            break;
+        case "PingPong":
+            if (se.NextIndex > lastIndex) {
                 se.NextIndex++;
-                break;
-            case "PingPong":
-                if (se.NextIndex > lastIndex) {
-                    se.NextIndex++;
-                } else {
-                    se.NextIndex--;
-                }
-                break;
-            case "Random":
-                se.NextIndex = Zetu.random(0, se.Sounds.length);
-                break;
-            case "RandomNew":
-                se.NextIndex = Zetu.random(0, se.Sounds.length - 1);
-                if (lastIndex >= se.NextIndex) se.NextIndex++;
-                break;
-        }
-        se.NextIndex %= se.Sounds.length;
-        return {
-            name: audio.File,
-            volume: Variance(audio.Volume, audio.VolumeVariance),
-            pitch: Variance(audio.Pitch, audio.PitchVariance),
-            pan: Variance(audio.Pan, audio.PanVariance)
-        }
+            } else {
+                se.NextIndex--;
+            }
+            break;
+        case "Random":
+            se.NextIndex = Zetu.random(0, se.Sounds.length);
+            break;
+        case "RandomNew":
+            se.NextIndex = Zetu.random(0, se.Sounds.length - 1);
+            if (lastIndex >= se.NextIndex) se.NextIndex++;
+            break;
     }
-
-    Window_Message.prototype.processTypingSEChange = function (friendlyName) {
-        var se = GetSound(friendlyName);
-        if (this.currentTypingSE 
-            && this.currentTypingSE.friendlyName == se.friendlyName) 
-        {
-            return;
-        } else if (se) {
-            this.currentTypingSE = se;
-        } else {
-            this.currentTypingSE = null;
-        }
+    se.NextIndex %= se.Sounds.length;
+    return {
+        name: audio.File,
+        volume: Variance(audio.Volume, audio.VolumeVariance),
+        pitch: Variance(audio.Pitch, audio.PitchVariance),
+        pan: Variance(audio.Pan, audio.PanVariance)
     }
+}
 
-    let Window_Base_processEscapeCharacter = Window_Base.prototype.processEscapeCharacter;
-    Window_Base.prototype.processEscapeCharacter = function(code, textState) {
-        Window_Base_processEscapeCharacter.call(this, ...arguments);
-        switch (code) {
-            case "TYPESE":
-                this.processTypingSEChange(this.obtainEscapeParamText(textState));
-                break;
-        }
-    };
+Window_Message.prototype.processTypingSEChange = function (friendlyName) {
+    console.log(friendlyName);
+    var se = GetSound(friendlyName);
+    console.log(se);
+    if (this.currentTypingSE 
+        && this.currentTypingSE.friendlyName == se.friendlyName) 
+    {
+        return;
+    } else if (se) {
+        this.currentTypingSE = se;
+    } else {
+        this.currentTypingSE = null;
+    }
+}
 
-    Window_Base.prototype.obtainEscapeParamText = function(textState) {
-        const regExp = /^\[[^\[\]]+\]/i;
-        const arr = regExp.exec(textState.text.slice(textState.index));
-        if (arr) {
-            textState.index += arr[0].length;
-            return arr[0].slice(1,-1);
-        } else {
-            return "";
-        }
-    };
+(alias => Window_Base.prototype.processEscapeCharacter = function(code, textState) {
+    alias.call(this, ...arguments);
+    switch (code) {
+        case "TYPESE":
+            var friendlyName = this.obtainEscapeParamText(textState);
+            console.log(friendlyName);
+            this.processTypingSEChange(friendlyName);
+            break;
+    }
+})(Window_Base.prototype.processEscapeCharacter);
 
-    AudioManager._typingBuffer = null;
-    AudioManager.playTypingSe = function(se) {
-        this.stopTypingSe();
-        if (se.name) {
-            this._typingBuffer = this.createBuffer("se/", se.name);
-            this.updateBufferParameters(this._typingBuffer, 100, se);
-            this._typingBuffer.play(false);
-        }
-    };
+Window_Base.prototype.obtainEscapeParamText = function(textState) {
+    const regExp = /^\[[^\[\]]+\]/i;
+    const arr = regExp.exec(textState.text.slice(textState.index));
+    if (arr) {
+        textState.index += arr[0].length;
+        console.log(arr[0].slice(1,-1));
+        return arr[0].slice(1,-1);
+    } else {
+        console.log("");
+        return "";
+    }
+};
 
-    AudioManager.stopTypingSe = function () {
-        if (this._typingBuffer) {
-            this._typingBuffer.destroy();
-            this._typingBuffer = null;
-        }
-    };
+AudioManager._typingBuffer = null;
+AudioManager.playTypingSe = function(se) {
+    this.stopTypingSe();
+    if (se.name) {
+        this._typingBuffer = this.createBuffer("se/", se.name);
+        this.updateBufferParameters(this._typingBuffer, 100, se);
+        this._typingBuffer.play(false);
+    }
+};
 
-})();
+AudioManager.stopTypingSe = function () {
+    if (this._typingBuffer) {
+        this._typingBuffer.destroy();
+        this._typingBuffer = null;
+    }
+};

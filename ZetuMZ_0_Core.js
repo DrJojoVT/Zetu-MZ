@@ -22,12 +22,6 @@
  * @type boolean
  * @default true
  * 
- * @param MapZoom
- * @text Map Zoom
- * @help Zooms in the Map, useful tilesizes less than 48
- * @type number
- * @default 1
- * 
  */
 var Imported = Imported || {};
 var Zetu = {};
@@ -243,6 +237,7 @@ Array.prototype.first = function (callback) {
         const item = this[i];
         if (callback(item)) return item;
     }
+    return null;
 };
 
 Array.prototype.last = function (callback) {
@@ -462,73 +457,16 @@ Rectangle.prototype.grow = function (left, top, right, bottom) {
 
 
 // #region Sprite
-Sprite.prototype.setAnimation = function (animation) {
-    animation.duration ||= 60;
-    animation.ticks ||= 0;
-    animation.index ||= -1;
-    animation.length ||= 1;
-
-    this.__zanimation = animation;
-    animation();
-};
-
-Sprite.prototype.addSpritestripAnimation = function (framesX, duration, pingpong = false) {
-    return this.addCycleAnimation(framesX, 1, duration, pingpong);
-};
-
-Sprite.prototype.addCycleAnimation = function (framesX, framesY, duration, pingpong = false) {
-    if (!framesX || framesX <= 0) throw new Error("Cannot cycle animation with 0 X-frames");
-    if (!framesY || framesY <= 0) throw new Error("Cannot cycle animation with 0 Y-frames");
-    if (this.bitmap._loadingState == "loading") {
-        this.bitmap.addLoadListener(() => this.addCycleAnimation(...arguments));
-        return;
-    }
-    var width = Math.floor(this.bitmap.width / framesX);
-    var height = Math.floor(this.bitmap.height / framesY);
-    
-    var direction = 1;
-    var length = framesX * framesY;
-    var sprite = this;
-    var animation = function () {
-        if (!sprite.bitmap) return;
-        if (animation.index >= length - 1) {
-            if (pingpong) {
-                direction = -1;
-                animation.index--;
-            } else {
-                direction = 1;
-                animation.index = -1;
-            }
-        } else if (animation.index <= 0 && direction < 0) {
-            direction = 1;
-            animation.index++;
-        }
-        animation.index += direction;
-        let row = Math.floor(animation.index / framesX);
-        let col = animation.index % framesX;
-        sprite.setFrame(col * width, row * height, width, height);
-    };
-    animation.duration = duration;
-    animation.pingpong = pingpong;
-    animation.length = framesX * framesY;
-    this.setAnimation(animation);
-};
-
-(alias => Sprite.prototype.update = function () {
-    alias.apply(this, arguments);
-    this.updateAnimation();
-})(Sprite.prototype.update);
-
-Sprite.prototype.updateAnimation = function () {
-    // Overwritten if used by Sprite_Destination
-    let animation = this.__zanimation;
-    if (!animation) return;
-    animation.ticks++;
-    if (animation.ticks >= animation.duration) {
-        animation();
-        animation.ticks = 0;
-    }
-};
+Sprite.FromIcon = function (iconIndex) {
+    let sprite = new Sprite();
+    sprite.bitmap = ImageManager.loadSystem("IconSet");
+    const pw = ImageManager.iconWidth;
+    const ph = ImageManager.iconHeight;
+    const sx = (iconIndex % 16) * pw;
+    const sy = Math.floor(iconIndex / 16) * ph;
+    sprite.setFrame(sx, sy, pw, ph);
+    return sprite;
+}
 // #endregion
 
 // #region Window_Base
